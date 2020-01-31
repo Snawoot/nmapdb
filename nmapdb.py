@@ -7,7 +7,10 @@ import sys
 import os
 import getopt
 import xml.dom.minidom
-from pysqlite2 import dbapi2 as sqlite
+try:
+    from pysqlite2 import dbapi2 as sqlite
+except ImportError:
+    import sqlite3 as sqlite
 
 VERSION = "1.2"
 DEFAULT_DATABASE = "./nmapdb.db"
@@ -19,20 +22,20 @@ vflag = false
 def myprint(msg):
     global vflag
     if vflag == true:
-        print msg
+        print (msg)
 
     return
 
 def usage(name):
-    print "usage: %s [options] <nmap output XML file(s)>" % name
-    print "options:"
-    print "     (-h) --help         this message"
-    print "     (-v) --verbose      verbose output"
-    print "     (-c) --create       specify input SQL file to create SQLite DB"
-    print "     (-d) --database     specify output SQLite DB file"
-    print "     (-f) --frequency    list most frequent open ports from specified DB"
-    print "     (-n) --nodb         do not perform any DB operations (i.e. dry run)"
-    print "     (-V) --version      output version number and exit"
+    print ("usage: %s [options] <nmap output XML file(s)>" % name)
+    print ("options:")
+    print ("     (-h) --help         this message")
+    print ("     (-v) --verbose      verbose output")
+    print ("     (-c) --create       specify input SQL file to create SQLite DB")
+    print ("     (-d) --database     specify output SQLite DB file")
+    print ("     (-f) --frequency    list most frequent open ports from specified DB")
+    print ("     (-n) --nodb         do not perform any DB operations (i.e. dry run)")
+    print ("     (-V) --version      output version number and exit")
 
     return
 
@@ -52,8 +55,8 @@ def main(argv, environ):
         alist, args = getopt.getopt(argv[1:], "hvd:c:f:nV",
                 ["help", "verbose", "database=", "create=", "frequency=",
                  "nodb", "version"])
-    except getopt.GetoptError, msg:
-        print "%s: %s\n" % (argv[0], msg)
+    except getopt.GetoptError as msg:
+        print ("%s: %s\n" % (argv[0], msg))
         usage(argv[0]);
         sys.exit(1)
  
@@ -73,8 +76,8 @@ def main(argv, environ):
         if field in ("-n", "--nodb"):
             nodb_flag = true
         if field in ("-V", "--version"):
-            print "nmapdb v%s by Patroklos Argyroudis <argp at domain census-labs.com>" % (VERSION)
-            print "parse nmap's XML output files and insert them into an SQLite database"
+            print ("nmapdb v%s by Patroklos Argyroudis <argp at domain census-labs.com>" % (VERSION))
+            print ("parse nmap's XML output files and insert them into an SQLite database")
             sys.exit(0)
 
     if freq_flag == false:
@@ -84,7 +87,7 @@ def main(argv, environ):
 
     if nodb_flag == false:
         if db_path == DEFAULT_DATABASE:
-            print "%s: no output SQLite DB file specified, using \"%s\"\n" % (argv[0], db_path)
+            print ("%s: no output SQLite DB file specified, using \"%s\"\n" % (argv[0], db_path))
 
         conn = sqlite.connect(db_path)
         cursor = conn.cursor()
@@ -96,7 +99,7 @@ def main(argv, environ):
             freq_sql = "select count(port) as frequency,port as fport from ports where ports.state='open' group by port having count(fport) > 1000"
 
             cursor.execute(freq_sql)
-            print "Frequency|Port"
+            print ("Frequency|Port")
 
             for row in cursor:
                 print(row)
@@ -109,8 +112,8 @@ def main(argv, environ):
         
             try:
                 cursor.executescript(sql_string)
-            except sqlite.ProgrammingError, msg:
-                print "%s: error: %s\n" % (argv[0], msg)
+            except sqlite.ProgrammingError as msg:
+                print ("%s: error: %s\n" % (argv[0], msg))
                 sys.exit(1)
 
             myprint("%s: SQLite DB created using SQL file \"%s\"\n" % (argv[0], sql_file))
@@ -119,10 +122,11 @@ def main(argv, environ):
         try:
             doc = xml.dom.minidom.parse(fname)
         except IOError:
-            print "%s: error: file \"%s\" doesn't exist\n" % (argv[0], fname)
+            print ("%s: error: file \"%s\" doesn't exist\n" % (argv[0], fname))
             continue
-        except xml.parsers.expat.ExpatError:
-            print "%s: error: file \"%s\" doesn't seem to be XML\n" % (argv[0], fname)
+        except xml.parsers.expat.ExpatError as e:
+            print ("%s: error: file \"%s\" doesn't seem to be XML\n" % (argv[0], fname))
+            print(e)
             continue
 
         for host in doc.getElementsByTagName("host"):
@@ -207,18 +211,18 @@ def main(argv, environ):
                     cursor.execute("INSERT INTO hosts VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             (ip, mac, hostname, protocol, os_name, os_family, os_accuracy,
                             os_gen, timestamp, state, mac_vendor, whois_str))
-                except sqlite.IntegrityError, msg:
-                    print "%s: warning: %s: table hosts: ip: %s\n" % (argv[0], msg, ip)
+                except sqlite.IntegrityError as msg:
+                    print ("%s: warning: %s: table hosts: ip: %s\n" % (argv[0], msg, ip))
                     continue
                 except:
-                    print "%s: unknown exception during insert into table hosts\n" % (argv[0])
+                    print ("%s: unknown exception during insert into table hosts\n" % (argv[0]))
                     continue
 
             try:
                 ports = host.getElementsByTagName("ports")[0]
                 ports = ports.getElementsByTagName("port")
             except:
-                print "%s: host %s has no open ports\n" % (argv[0], ip)
+                print ("%s: host %s has no open ports\n" % (argv[0], ip))
                 continue
 
             for port in ports:
@@ -272,11 +276,11 @@ def main(argv, environ):
                 if nodb_flag == false:
                     try:
                         cursor.execute("INSERT INTO ports VALUES (?, ?, ?, ?, ?, ?, ?)", (ip, pn, protocol, port_name, state, service_str, info_str))
-                    except sqlite.IntegrityError, msg:
-                        print "%s: warning: %s: table ports: ip: %s\n" % (argv[0], msg, ip)
+                    except sqlite.IntegrityError as msg:
+                        print ("%s: warning: %s: table ports: ip: %s\n" % (argv[0], msg, ip))
                         continue
                     except:
-                        print "%s: unknown exception during insert into table ports\n" % (argv[0])
+                        print ("%s: unknown exception during insert into table ports\n" % (argv[0]))
                         continue
 
                 myprint("\t------------------------------------------------")
